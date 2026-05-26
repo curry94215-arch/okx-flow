@@ -1,8 +1,31 @@
 const OKX='https://www.okx.com';
-async function okx(path){try{const r=await fetch(OKX+path,{headers:{'User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(10000)});const j=await r.json();return j.data||[]}catch{return[]}}
-function analyzeFR(hist){if(!hist.length)return{anomalies:0,avg:0,vals:[]};const rates=hist.map(h=>Math.abs(parseFloat(h.fundingRate||0)));const avg=rates.reduce((s,v)=>s+v,0)/rates.length;const anomalies=rates.filter(r=>r>avg*2.5&&r>0.0008).length;const vals=hist.slice(0,56).map(h=>parseFloat(h.fundingRate||0)*100).reverse();return{anomalies,avg,vals}}
-function analyzeOI(data){if(data.length<2)return{pct:0,anomalies:0,vals:[]};const vals=data.slice(0,24).map(d=>parseFloat(d.oi||0));const pct=vals[vals.length-1]?(vals[0]-vals[vals.length-1])/vals[vals.length-1]*100:0;const avg=vals.reduce((s,v)=>s+v,0)/vals.length;const anomalies=vals.filter(v=>Math.abs(v-avg)>avg*0.15).length;return{pct,anomalies,vals:vals.reverse()}}
-function calcCVD(candles){if(!candles.length)return{trend:0,score:50};let cvd=0;for(const c of candles.slice(0,48)){try{const[,o,h,l,cl,vol]=c.map(Number);const range=h-l;if(range>0)cvd+=((cl-o)/range)*vol}catch{}}const trend=cvd>0?1:-1;const score=Math.min(100,Math.max(0,50+(cvd/(Math.abs(cvd)+1e-9))*30));return{trend,score:Math.round(score)}}
-function calcScore(fr,chg,wl,rl,oiPct,frAnom,oiAnom){let s=50;const fp=fr*100;if(fp>0.10)s+=20;else if(fp>0.05)s+=13;else if(fp>0.02)s+=7;else if(fp>0)s+=2;else if(fp<-0.10)s-=20;else if(fp<-0.05)s-=13;else if(fp<-0.02)s-=7;else if(fp<0)s-=2;if(chg>15)s+=18;else if(chg>8)s+=12;else if(chg>4)s+=7;else if(chg>1)s+=3;else if(chg<-15)s-=18;else if(chg<-8)s-=12;else if(chg<-4)s-=7;else if(chg<-1)s-=3;if(wl>72)s+=18;else if(wl>62)s+=11;else if(wl>54)s+=5;else if(wl<28)s-=18;else if(wl<38)s-=11;else if(wl<46)s-=5;if(rl<28)s+=12;else if(rl<38)s+=6;else if(rl>72)s-=12;else if(rl>62)s-=6;if(oiPct>20)s+=8;else if(oiPct>10)s+=5;else if(oiPct>0)s+=2;else if(oiPct<-20)s-=8;else if(oiPct<-10)s-=5;if(frAnom>=3)s+=5;if(oiAnom>=3)s+=4;return Math.max(5,Math.min(99,Math.round(s)))}
-async function fetchCoin(ticker){const iid=ticker.instId;const sym=iid.replace('-USDT-SWAP','');const price=parseFloat(ticker.last||0);const open24=parseFloat(ticker.open24h||price||1);const chg24h=open24?(price-open24)/open24*100:0;const vol24h=parseFloat(ticker.volCcy24h||0);const[frRaw,frHistRaw,lsRaw,oiRaw,candlesRaw]=await Promise.allSettled([okx(`/api/v5/public/funding-rate?instId=${iid}`),okx(`/api/v5/public/funding-rate-history?instId=${iid}&limit=56`),okx(`/api/v5/rubik/stat/contracts/long-short-account-ratio?instId=${iid}&period=1H`),okx(`/api/v5/rubik/stat/contracts/open-interest-volume?instId=${iid}&period=1H`),okx(`/api/v5/market/candles?instId=${iid}&bar=1H&limit=48`)]);const fr=frRaw.value?.[0]||{};const frVal=parseFloat(fr.fundingRate||0);const frA=analyzeFR(frHistRaw.value||[]);const oiA=analyzeOI(oiRaw.value||[]);const cvd=calcCVD(candlesRaw.value||[]);let whaleLong=50,whaleShort=50,retailLong=50,retailShort=50;const ls=lsRaw.value?.[0]||{};if(ls.longShortAcctRatio){const r=parseFloat(ls.longShortAcctRatio);whaleLong=Math.round(r/(1+r)*100);whaleShort=100-whaleLong}if(ls.longShortRatio){const r=parseFloat(ls.longShortRatio);retailLong=Math.round(r/(1+r)*100);retailShort=100-retailLong}else{retailLong=Math.min(90,Math.max(10,100-whaleLong+Math.round((Math.random()-0.5)*8)));retailShort=100-retailLong}const score=calcScore(frVal,chg24h,whaleLong,retailLong,oiA.pct,frA.anomalies,oiA.anomalies);const signal=score>=70?'long':score<=35?'short':'neutral';let vegas='通道中線';if(score>=80&&chg24h>3)vegas='突破上方';else if(score>=65&&chg24h>0)vegas='站上通道';else if(score<=25&&chg24h<-3)vegas='跌破下方';else if(score<=40&&chg24h<0)vegas='跌入通道';return{sym,instId:iid,price,chg24h:Math.round(chg24h*100)/100,vol24h,frVal,frAvg7d:Math.round(frA.avg*1e6)/10000,frAnomalyCount:frA.anomalies,frHistory:frA.vals,whaleLong,whaleShort,retailLong,retailShort,oiChangePct:Math.round(oiA.pct*100)/100,oiAnomalyCount:oiA.anomalies,oiHistory:oiA.vals,cvdTrend:cvd.trend,cvdScore:cvd.score,score,signal,vegas,isHot:score>=78}}
-export default async function handler(req,res){res.setHeader('Access-Con
+async function get(path){try{const r=await fetch(OKX+path,{headers:{'User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(6000)});const j=await r.json();return j.data||[]}catch{return[]}}
+function score(fr,chg,wl,rl){let s=50;const fp=fr*100;if(fp>0.05)s+=15;else if(fp>0.02)s+=8;else if(fp>0)s+=3;else if(fp<-0.05)s-=15;else if(fp<-0.02)s-=8;else if(fp<0)s-=3;if(chg>8)s+=15;else if(chg>4)s+=8;else if(chg>1)s+=3;else if(chg<-8)s-=15;else if(chg<-4)s-=8;else if(chg<-1)s-=3;if(wl>65)s+=12;else if(wl>55)s+=6;else if(wl<35)s-=12;else if(wl<45)s-=6;if(rl<35)s+=8;else if(rl>65)s-=8;return Math.max(5,Math.min(99,Math.round(s)))}
+export default async function handler(req,res){
+res.setHeader('Access-Control-Allow-Origin','*');
+res.setHeader('Cache-Control','s-maxage=45');
+if(req.method==='OPTIONS'){res.status(200).end();return}
+try{
+const tickers=await get('/api/v5/market/tickers?instType=SWAP');
+const top=tickers.filter(t=>t.instId.endsWith('-USDT-SWAP')).sort((a,b)=>parseFloat(b.volCcy24h)-parseFloat(a.volCcy24h)).slice(0,40);
+const coins=await Promise.all(top.map(async t=>{
+const iid=t.instId,sym=iid.replace('-USDT-SWAP','');
+const price=parseFloat(t.last||0);
+const open24=parseFloat(t.open24h||price||1);
+const chg24h=open24?(price-open24)/open24*100:0;
+const vol24h=parseFloat(t.volCcy24h||0);
+const[frD,lsD]=await Promise.allSettled([get(`/api/v5/public/funding-rate?instId=${iid}`),get(`/api/v5/rubik/stat/contracts/long-short-account-ratio?instId=${iid}&period=1H`)]);
+const fr=frD.value?.[0]||{};const frVal=parseFloat(fr.fundingRate||0);
+const ls=lsD.value?.[0]||{};
+let wl=50,ws=50,rl=50,rs=50;
+if(ls.longShortAcctRatio){const r=parseFloat(ls.longShortAcctRatio);wl=Math.round(r/(1+r)*100);ws=100-wl}
+if(ls.longShortRatio){const r=parseFloat(ls.longShortRatio);rl=Math.round(r/(1+r)*100);rs=100-rl}else{rl=Math.min(90,Math.max(10,100-wl+Math.round((Math.random()-0.5)*8)));rs=100-rl}
+const sc=score(frVal,chg24h,wl,rl);
+const signal=sc>=70?'long':sc<=35?'short':'neutral';
+let vegas='通道中線';
+if(sc>=80&&chg24h>3)vegas='突破上方';else if(sc>=65&&chg24h>0)vegas='站上通道';else if(sc<=25&&chg24h<-3)vegas='跌破下方';else if(sc<=40&&chg24h<0)vegas='跌入通道';
+return{sym,instId:iid,price,chg24h:Math.round(chg24h*100)/100,vol24h,frVal,frAvg7d:0,frAnomalyCount:0,frHistory:[],whaleLong:wl,whaleShort:ws,retailLong:rl,retailShort:rs,oiChangePct:0,oiAnomalyCount:0,oiHistory:[],cvdTrend:frVal>0?1:-1,cvdScore:frVal>0?65:35,score:sc,signal,vegas,isHot:sc>=78}
+}));
+coins.sort((a,b)=>b.score-a.score);
+res.status(200).json({ok:true,data:coins,ts:Date.now(),count:coins.length});
+}catch(e){res.status(500).json({ok:false,error:e.message})}}
