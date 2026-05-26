@@ -1,5 +1,85 @@
 export const config={runtime:'edge'};
 const OKX='https://www.okx.com';
+const KEY='2bc0e043-c398-432d-a3a1-fc86b0012a43';
+const SECRET='50A0A172F0D365FD563E519811B02DA3';
+const PASS='coqfyv-vizsos-tYcgo1';
+async function sign(ts,method,path,body=''){
+  const msg=ts+method+path+body;
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const sig=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(msg));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+async function okxAuth(path){
+  try{
+    const ts=new Date().toISOString();
+    const sig=await sign(ts,'GET',path);
+    const r=await fetch(OKX+path,{headers:{'OK-ACCESS-KEY':KEY,'OK-ACCESS-SIGN':sig,'OK-ACCESS-TIMESTAMP':ts,'OK-ACCESS-PASSPHRASE':PASS,'x-simulated-trading':'0'},signal:AbortSignal.timeout(8000)});
+    const j=await r.json();return j.data||[];
+  }catch{return[];}
+}
 async function get(p){try{const r=await fetch(OKX+p,{headers:{'User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(8000)});const j=await r.json();return j.data||[]}catch{return[]}}
 function calcScore(fr,chg,wl,rl,oiChg,frAnom){let s=50;const fp=fr*100;if(fp>0.10)s+=20;else if(fp>0.05)s+=13;else if(fp>0.02)s+=7;else if(fp>0.005)s+=3;else if(fp>0)s+=1;else if(fp<-0.10)s-=20;else if(fp<-0.05)s-=13;else if(fp<-0.02)s-=7;else if(fp<-0.005)s-=3;else if(fp<0)s-=1;if(chg>12)s+=16;else if(chg>6)s+=10;else if(chg>3)s+=6;else if(chg>1)s+=3;else if(chg>0)s+=1;else if(chg<-12)s-=16;else if(chg<-6)s-=10;else if(chg<-3)s-=6;else if(chg<-1)s-=3;else if(chg<0)s-=1;if(wl!==50){if(wl>68)s+=12;else if(wl>58)s+=7;else if(wl>52)s+=3;else if(wl<32)s-=12;else if(wl<42)s-=7;else if(wl<48)s-=3;}if(rl!==50){if(rl<32)s+=9;else if(rl<42)s+=5;else if(rl>68)s-=9;else if(rl>58)s-=5;}if(oiChg>20)s+=6;else if(oiChg>10)s+=3;else if(oiChg>5)s+=1;else if(oiChg<-20)s-=6;else if(oiChg<-10)s-=3;if(frAnom)s+=4;return Math.max(5,Math.min(99,Math.round(s)));}
-export default async function handler(req){const h={'Access-Control-Allow-Origin':'*','Content-Type':'application/json','Cache-Control':'s-maxage=45,stale-while-revalidate=30'};if(req.method==='OPTIONS')return new Response(null,{status:200,headers:h});try{const now=new Date();const timeStr=now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});const tickers=await get('/api/v5/market/tickers?instType=SWAP');const top=tickers.filter(t=>t.instId.endsWith('-USDT-SWAP')).sort((a,b)=>parseFloat(b.volCcy24h)-parseFloat(a.volCcy24h)).slice(0,60);const coins=await Promise.all(top.map(async t=>{const iid=t.instId,sym=iid.replace('-USDT-SWAP','');const price=parseFloat(t.last||0);const open24=parseFloat(t.open24h||price||1);const high24=parseFloat(t.high24h||price);const low24=parseFloat(t.low24h||price);const chg24h=open24?(price-open24)/open24*100:0;const vol24h=parseFloat(t.volCcy24h||0);const[frD,frHD,lsD,oiD]=await Promise.allSettled([get(`/api/v5/public/funding-rate?instId=${iid}`),get(`/api/v5/public/funding-rate-history?instId=${iid}&limit=24`),get(`/api/v5/rubik/stat/contracts/long-short-account-ratio?instId=${iid}&period=1H`),get(`/api/v5/rubik/stat/contracts/open-interest-volume?instId=${iid}&period=1H`)]);const fr=frD.value?.[0]||{};const frVal=parseFloat(fr.fundingRate||0);const nextF=fr.nextFundingTime?new Date(parseInt(fr.nextFundingTime)).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false}):'--';const frHist=frHD.value||[];const frRates=frHist.map(h=>Math.abs(parseFloat(h.fundingRate||0)));const frAvg=frRates.length?frRates.reduce((s,v)=>s+v,0)/frRates.length:0;const frAnom=frRates.some(r=>r>frAvg*2.5&&r>0.001);const frAnomalyCount=frRates.filter(r=>r>frAvg*2.5&&r>0.001).length;const ls=lsD.value?.[0]||{};let wl=50,ws=50,rl=50,rs=50,hasLS=false;if(ls.longShortAcctRatio){const r=parseFloat(ls.longShortAcctRatio);wl=Math.round(r/(1+r)*100);ws=100-wl;hasLS=true;}if(ls.longShortRatio){const r=parseFloat(ls.longShortRatio);rl=Math.round(r/(1+r)*100);rs=100-rl;}const oiArr=oiD.value||[];let oiChg=0,oiAnom=0,oiTrend='持平';if(oiArr.length>=2){const cur=parseFloat(oiArr[0]?.oi||0),prev=parseFloat(oiArr[1]?.oi||1);oiChg=prev?(cur-prev)/prev*100:0;const oiVals=oiArr.slice(0,12).map(d=>parseFloat(d.oi||0)).filter(v=>v>0);if(oiVals.length>2){const avg=oiVals.reduce((s,v)=>s+v,0)/oiVals.length;oiAnom=oiVals.filter(v=>Math.abs(v-avg)>avg*0.15).length;}if(oiChg>8)oiTrend='快速增倉';else if(oiChg>3)oiTrend='緩慢增倉';else if(oiChg<-8)oiTrend='快速減倉';else if(oiChg<-3)oiTrend='緩慢減倉';}const priceRange=high24-low24;const pricePos=priceRange>0?(price-low24)/priceRange:0.5;const cvdScore=Math.min(99,Math.max(1,Math.round(30+pricePos*40+(chg24h>0?10:0)+(frVal>0?10:0))));const sc=calcScore(frVal,chg24h,wl,rl,oiChg,frAnom);const signal=sc>=65?'long':sc<=38?'short':'neutral';let vegas='通道中線',vegasDetail='EMA144/169 區間整理',vegasStr='neutral';if(sc>=85&&chg24h>5){vegas='強勢突破';vegasDetail='強力突破 EMA144/169，趨勢確立';vegasStr='strong-bull';}else if(sc>=72&&chg24h>2){vegas='突破上方';vegasDetail='突破 EMA144 壓力，多方主導';vegasStr='bull';}else if(sc>=60&&chg24h>0){vegas='站上通道';vegasDetail='站上 EMA144 支撐，偏多';vegasStr='mild-bull';}else if(sc<=18&&chg24h<-5){vegas='強勢跌破';vegasDetail='跌破 EMA144/169，空方主導';vegasStr='strong-bear';}else if(sc<=32&&chg24h<-2){vegas='跌破下方';vegasDetail='跌破 EMA144 支撐，空方接管';vegasStr='bear';}else if(sc<=44&&chg24h<0){vegas='跌入通道';vegasDetail='回落至 EMA 壓力區間';vegasStr='mild-bear';}return{sym,instId:iid,price,high24h:high24,low24h:low24,chg24h:Math.round(chg24h*100)/100,vol24h,frVal,frAvg7d:Math.round(frAvg*1e6)/10000,frAnomalyCount,frAnomaly:frAnom,nextFunding:nextF,whaleLong:wl,whaleShort:ws,retailLong:rl,retailShort:rs,hasLSData:hasLS,oiChangePct:Math.round(oiChg*100)/100,oiAnomalyCount:oiAnom,oiTrend,cvdTrend:cvdScore>50?1:-1,cvdScore,score:sc,signal,vegas,vegasDetail,vegasStrength:vegasStr,isHot:sc>=78,signalTime:timeStr};}));coins.sort((a,b)=>b.score-a.score);return new Response(JSON.stringify({ok:true,data:coins,ts:Date.now(),count:coins.length,updateTime:timeStr}),{status:200,headers:h});}catch(e){return new Response(JSON.stringify({ok:false,error:e.message}),{status:500,headers:h});}}
+export default async function handler(req){
+  const h={'Access-Control-Allow-Origin':'*','Content-Type':'application/json','Cache-Control':'s-maxage=45'};
+  if(req.method==='OPTIONS')return new Response(null,{status:200,headers:h});
+  try{
+    const now=new Date();
+    const timeStr=now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    const tickers=await get('/api/v5/market/tickers?instType=SWAP');
+    const top=tickers.filter(t=>t.instId.endsWith('-USDT-SWAP')).sort((a,b)=>parseFloat(b.volCcy24h)-parseFloat(a.volCcy24h)).slice(0,60);
+    const coins=await Promise.all(top.map(async t=>{
+      const iid=t.instId,sym=iid.replace('-USDT-SWAP','');
+      const price=parseFloat(t.last||0);
+      const open24=parseFloat(t.open24h||price||1);
+      const high24=parseFloat(t.high24h||price);
+      const low24=parseFloat(t.low24h||price);
+      const chg24h=open24?(price-open24)/open24*100:0;
+      const vol24h=parseFloat(t.volCcy24h||0);
+      const[frD,frHD,lsD,oiD,oiAuthD]=await Promise.allSettled([
+        get(`/api/v5/public/funding-rate?instId=${iid}`),
+        get(`/api/v5/public/funding-rate-history?instId=${iid}&limit=24`),
+        okxAuth(`/api/v5/account/position-tiers?instType=SWAP&instId=${iid}`),
+        get(`/api/v5/rubik/stat/contracts/open-interest-volume?instId=${iid}&period=5m`),
+        okxAuth(`/api/v5/rubik/stat/contracts/long-short-account-ratio?instId=${iid}&period=1H`)
+      ]);
+      const fr=frD.value?.[0]||{};
+      const frVal=parseFloat(fr.fundingRate||0);
+      const nextF=fr.nextFundingTime?new Date(parseInt(fr.nextFundingTime)).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false}):'--';
+      const frHist=frHD.value||[];
+      const frRates=frHist.map(h=>Math.abs(parseFloat(h.fundingRate||0)));
+      const frAvg=frRates.length?frRates.reduce((s,v)=>s+v,0)/frRates.length:0;
+      const frAnom=frRates.some(r=>r>frAvg*2.5&&r>0.001);
+      const frAnomalyCount=frRates.filter(r=>r>frAvg*2.5&&r>0.001).length;
+      const lsAuth=oiAuthD.value||[];
+      const lsPub=await get(`/api/v5/rubik/stat/contracts/long-short-account-ratio?instId=${iid}&period=1H`);
+      const ls=lsAuth[0]||lsPub[0]||{};
+      let wl=50,ws=50,rl=50,rs=50,hasLS=false;
+      if(ls.longShortAcctRatio){const r=parseFloat(ls.longShortAcctRatio);wl=Math.round(r/(1+r)*100);ws=100-wl;hasLS=true;}
+      if(ls.longShortRatio){const r=parseFloat(ls.longShortRatio);rl=Math.round(r/(1+r)*100);rs=100-rl;}
+      const oiArr=oiD.value||[];
+      let oiChg=0,oiAnom=0,oiTrend='持平';
+      if(oiArr.length>=2){
+        const cur=parseFloat(oiArr[0]?.oi||0),prev=parseFloat(oiArr[1]?.oi||1);
+        oiChg=prev?(cur-prev)/prev*100:0;
+        const oiVals=oiArr.slice(0,12).map(d=>parseFloat(d.oi||0)).filter(v=>v>0);
+        if(oiVals.length>2){const avg=oiVals.reduce((s,v)=>s+v,0)/oiVals.length;oiAnom=oiVals.filter(v=>Math.abs(v-avg)>avg*0.15).length;}
+        if(oiChg>8)oiTrend='快速增倉';else if(oiChg>3)oiTrend='緩慢增倉';else if(oiChg<-8)oiTrend='快速減倉';else if(oiChg<-3)oiTrend='緩慢減倉';
+      }
+      const priceRange=high24-low24;
+      const pricePos=priceRange>0?(price-low24)/priceRange:0.5;
+      const cvdScore=Math.min(99,Math.max(1,Math.round(30+pricePos*40+(chg24h>0?10:0)+(frVal>0?10:0))));
+      const sc=calcScore(frVal,chg24h,wl,rl,oiChg,frAnom);
+      const signal=sc>=65?'long':sc<=38?'short':'neutral';
+      let vegas='通道中線',vegasDetail='EMA144/169 區間整理',vegasStr='neutral';
+      if(sc>=85&&chg24h>5){vegas='強勢突破';vegasDetail='強力突破 EMA144/169，趨勢確立';vegasStr='strong-bull';}
+      else if(sc>=72&&chg24h>2){vegas='突破上方';vegasDetail='突破 EMA144 壓力，多方主導';vegasStr='bull';}
+      else if(sc>=60&&chg24h>0){vegas='站上通道';vegasDetail='站上 EMA144 支撐，偏多';vegasStr='mild-bull';}
+      else if(sc<=18&&chg24h<-5){vegas='強勢跌破';vegasDetail='跌破 EMA144/169，空方主導';vegasStr='strong-bear';}
+      else if(sc<=32&&chg24h<-2){vegas='跌破下方';vegasDetail='跌破 EMA144 支撐，空方接管';vegasStr='bear';}
+      else if(sc<=44&&chg24h<0){vegas='跌入通道';vegasDetail='回落至 EMA 壓力區間';vegasStr='mild-bear';}
+      return{sym,instId:iid,price,high24h:high24,low24h:low24,chg24h:Math.round(chg24h*100)/100,vol24h,frVal,frAvg7d:Math.round(frAvg*1e6)/10000,frAnomalyCount,frAnomaly:frAnom,nextFunding:nextF,whaleLong:wl,whaleShort:ws,retailLong:rl,retailShort:rs,hasLSData:hasLS,oiChangePct:Math.round(oiChg*100)/100,oiAnomalyCount:oiAnom,oiTrend,cvdTrend:cvdScore>50?1:-1,cvdScore,score:sc,signal,vegas,vegasDetail,vegasStrength:vegasStr,isHot:sc>=78,signalTime:timeStr};
+    }));
+    coins.sort((a,b)=>b.score-a.score);
+    return new Response(JSON.stringify({ok:true,data:coins,ts:Date.now(),count:coins.length,updateTime:timeStr}),{status:200,headers:h});
+  }catch(e){return new Response(JSON.stringify({ok:false,error:e.message}),{status:500,headers:h});}
+}
