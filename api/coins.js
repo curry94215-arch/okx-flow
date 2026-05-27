@@ -22,7 +22,7 @@ export default async function handler(req,res){
     (bnLS.value||[]).forEach(x=>{const s=x.symbol?.replace('USDT','');if(s)bnLSMap[s]=Math.round(parseFloat(x.longAccount||0.5)*100)});
     (bnGLS.value||[]).forEach(x=>{const s=x.symbol?.replace('USDT','');if(s)bnGLSMap[s]=Math.round(parseFloat(x.longAccount||0.5)*100)});
     const fg=fgD.value?.data?.[0]||{};
-    const top=(tickers.value||[]).filter(t=>t.instId.endsWith('-USDT-SWAP')).sort((a,b)=>parseFloat(b.volCcy24h)-parseFloat(a.volCcy24h)).slice(0,60);
+    const top=(tickers.value||[]).filter(t=>t.instId.endsWith('-USDT-SWAP')).sort((a,b)=>parseFloat(b.volCcy24h)-parseFloat(a.volCcy24h)).slice(0,30);
     const coins=await Promise.all(top.map(async t=>{
       const iid=t.instId,sym=iid.replace('-USDT-SWAP','');
       const price=parseFloat(t.last||0),open24=parseFloat(t.open24h||price||1),high24=parseFloat(t.high24h||price),low24=parseFloat(t.low24h||price);
