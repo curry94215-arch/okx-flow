@@ -145,7 +145,7 @@ function getVegasSignal(c){
   const taker=+c.taker||50;
   const cvdDiff=+c.cvdDiff||0;
   // 用價格在24H區間位置模擬通道位置
-  const pos=+c.pricePos||(price-(+c.low24h||price*0.95))/(((+c.high24h||price*1.05)-(+c.low24h||price*0.95))||1);
+  const pos=(price-(+c.low24h||price*0.95))/(((+c.high24h||price*1.05)-(+c.low24h||price*0.95))||1);
   let vegasPos='通道內';
   let vegasColor='neutral';
   let vegasScore=0;
@@ -197,7 +197,7 @@ function renderSum(){
   document.getElementById('hotcnt').textContent=ALL.filter(c=>c.score>=83).length+'個';
   document.getElementById('lupd').textContent=MKT.updateTime||'--';
   // 批次進度條
-  const pct=MKT.totalBatches?Math.round(((MKT.currentBatch+1)/MKT.totalBatches)*100):100;
+  const pct=MKT&&MKT.totalBatches?Math.round(((( MKT.currentBatch||0)+1)/MKT.totalBatches)*100):100;
   document.getElementById('batchfill').style.width=pct+'%';
 }
 
@@ -424,20 +424,21 @@ async function load(manual=false){
   const btn=document.querySelector('[onclick="load(true)"]');
   if(manual&&btn){btn.textContent='⏳';btn.disabled=true;}
   const pill=document.getElementById('stpill');
-  pill.className='lpill pload';pill.innerHTML='<span class="ldot"></span>更新中';
+  pill.className='lpill pload';pill.innerHTML='<span class="ldot"></span>Loading';
   try{
     const r=await fetch(API,{signal:AbortSignal.timeout(30000)});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();
-    if(!j.ok||!j.data?.length)throw new Error(j.msg||j.error||'no data');
+    console.log('API ok:',j.ok,'count:',j.data?.length,'market:',j.market);if(!j.ok||!j.data?.length)throw new Error(j.msg||j.error||'no data');
     ALL=j.data;MKT=j.market||{};
-    renderSum();apply();
+    try{renderSum();}catch(e){console.error('renderSum error:',e);}
+    try{apply();}catch(e){console.error('apply error:',e);}
     pill.className='lpill plive';
     pill.innerHTML='<span class="ldot"></span>LIVE·'+ALL.length;
     clearTimeout(autoT);autoT=setTimeout(()=>load(),30000);
   }catch(e){
-    pill.className='lpill perr';pill.innerHTML='<span>⚠</span> 失敗';
-    document.getElementById('list').innerHTML='<div style="text-align:center;padding:30px"><div style="color:var(--r);font-size:10px;margin-bottom:10px">'+e.message+'</div><button onclick="load(true)" style="font-size:10px;padding:6px 14px;border:1px solid var(--b1);border-radius:4px;background:transparent;color:var(--t0);cursor:pointer">重試</button></div>';
+    pill.className='lpill perr';pill.innerHTML='<span>⚠</span> Error';
+    document.getElementById('list').innerHTML='<div style="text-align:center;padding:30px"><div style="color:var(--r);font-size:10px;margin-bottom:10px">'+e.message+'</div><button onclick="load(true)" style="font-size:10px;padding:6px 14px;border:1px solid var(--b1);border-radius:4px;background:transparent;color:var(--t0);cursor:pointer">Retry</button></div>';
     clearTimeout(autoT);autoT=setTimeout(()=>load(),30000);
   }finally{if(manual&&btn){btn.textContent='↻';btn.disabled=false;}}
 }
