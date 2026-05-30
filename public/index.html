@@ -314,6 +314,14 @@ function apply(){
   renderList(list);
 }
 
+async function tryFetch(ms){
+  var r=await fetch(API,{signal:AbortSignal.timeout(ms)});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  var j=await r.json();
+  if(!j.ok)throw new Error(j.error||'API error');
+  if(!j.data||!j.data.length)throw new Error('No data');
+  return j;
+}
 async function load(manual){
   var btn=document.querySelector('[onclick="load(true)"]');
   if(manual&&btn){btn.textContent='...';btn.disabled=true;}
@@ -321,25 +329,31 @@ async function load(manual){
   pill.className='lpill pload';
   pill.innerHTML='<span class="ldot"></span>連接中';
   try{
-    var r=await fetch(API,{signal:AbortSignal.timeout(55000)});
-    if(!r.ok)throw new ⚠ 失敗('HTTP '+r.status);
-    var j=await r.json();
-    if(!j.ok)throw new ⚠ 失敗(j.錯誤||'API錯誤');
-    if(!j.data||!j.data.length)throw new ⚠ 失敗('無數據 (count:'+(j.count||0)+')');
-    ALL=j.data;
-    MKT=j.market||{};
+    var j=await tryFetch(12000);
+    ALL=j.data;MKT=j.market||{};
     pill.className='lpill plive';
     pill.innerHTML='<span class="ldot"></span>LIVE·'+ALL.length;
-    renderSum();
-    apply();
-    clearTimeout(autoT);
-    autoT=setTimeout(function(){load(false);},30000);
-  }catch(e){
+    renderSum();apply();
+    clearTimeout(autoT);autoT=setTimeout(function(){load(false);},30000);
+    if(manual&&btn){btn.textContent='&#x21BB;';btn.disabled=false;}
+    return;
+  }catch(e1){
+    pill.className='lpill pload';
+    pill.innerHTML='<span class="ldot"></span>運算中';
+    document.getElementById('list').innerHTML='<div class="larea"><div style="font-size:20px">&#x2B21;</div><div class="lbar"><div class="lfill"></div></div><div class="lmsg">Worker 正在計算數據，請稍候...</div></div>';
+  }
+  try{
+    var j=await tryFetch(58000);
+    ALL=j.data;MKT=j.market||{};
+    pill.className='lpill plive';
+    pill.innerHTML='<span class="ldot"></span>LIVE·'+ALL.length;
+    renderSum();apply();
+    clearTimeout(autoT);autoT=setTimeout(function(){load(false);},30000);
+  }catch(e2){
     pill.className='lpill perr';
     pill.innerHTML='⚠ 失敗';
-    document.getElementById('list').innerHTML='<div style="text-align:center;padding:30px"><div style="color:var(--r);font-size:10px;margin-bottom:10px">'+e.message+'</div><button onclick="load(true)" style="font-size:10px;padding:6px 14px;border:1px solid var(--b1);border-radius:4px;background:transparent;color:var(--t0);cursor:pointer">↻ 重試</button></div>';
-    clearTimeout(autoT);
-    autoT=setTimeout(function(){load(false);},30000);
+    document.getElementById('list').innerHTML='<div style="text-align:center;padding:30px"><div style="color:var(--r);font-size:10px;margin-bottom:10px">'+e2.message+'</div><button onclick="load(true)" style="font-size:10px;padding:6px 14px;border:1px solid var(--b1);border-radius:4px;background:transparent;color:var(--t0);cursor:pointer">&#x21BB; 重試</button></div>';
+    clearTimeout(autoT);autoT=setTimeout(function(){load(false);},30000);
   }finally{
     if(manual&&btn){btn.textContent='&#x21BB;';btn.disabled=false;}
   }
