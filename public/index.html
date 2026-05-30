@@ -146,21 +146,21 @@ alertsHtml+
 '<div class="eg"><div class="egl">目標1 (1:2)</div><div class="egv" style="color:#44ddaa">'+fp(c.tp1)+'</div><div class="egs">風報比 1:2</div></div>'+
 '<div class="eg"><div class="egl">目標2 (1:3)</div><div class="egv cg">'+fp(c.tp2)+'</div><div class="egs">風報比 1:3</div></div>'+
 '</div>'+
-(sigCnt.count>0&&sigCnt.gainSince!==0?'<div style="margin-top:6px;font-size:8px;color:var(--t1)">首次訊號後漲幅：<span style="color:'+(sigCnt.gainSince>=0?'var(--g)':'var(--r)')+'">'+（sigCnt.gainSince>=0?'+':'')+sigCnt.gainSince+'%</span></div>':'')+
+(sigCnt.count>0&&sigCnt.gainSince!==0?'<div style="margin-top:6px;font-size:8px;color:var(--t1)">首次訊號後漲幅：<span style="color:'+(sigCnt.gainSince>=0?'var(--g)':'var(--r)')+'">'+(sigCnt.gainSince>=0?'+':'')+sigCnt.gainSince+'%</span></div>':'')+
 '</div>':'')+
 '<div class="dblock"><div class="dbt">📊 OI 持倉分析</div>'+
 '<div class="dgrid">'+
 '<div class="di"><div class="dl">1H 變化</div><div class="dv '+(oi1h>=0?'cg':'cr')+'">'+(oi1h>=0?'+':'')+oi1h.toFixed(2)+'%</div><div class="ds">'+c.oiTrend+'</div></div>'+
-'<div class="di"><div class="dl">4H 變化</div><div class="dv '+(oi4h>=0?'cg':'cr')+'">'+(oi4h>=0?'+':'')+oi4h.toFixed(2)+'%</div><div class="ds">'+（c.oiStrength||'--')+'</div></div>'+
+'<div class="di"><div class="dl">4H 變化</div><div class="dv '+(oi4h>=0?'cg':'cr')+'">'+(oi4h>=0?'+':'')+oi4h.toFixed(2)+'%</div><div class="ds">'+(c.oiStrength||'--')+'</div></div>'+
 '<div class="di"><div class="dl">24H 變化</div><div class="dv '+(oi24h>=0?'cg':'cr')+'">'+(oi24h>=0?'+':'')+oi24h.toFixed(2)+'%</div></div>'+
-'<div class="di"><div class="dl">OI 名目價值</div><div class="dv">$'+(+c.oiUSDValue||0)+'M</div><div class="ds">連續'+（c.oiContinuous||0)+'根'+(c.oiContinuous>0?'增倉':c.oiContinuous<0?'減倉':'持平')+'</div></div>'+
+'<div class="di"><div class="dl">OI 名目價值</div><div class="dv">$'+(+c.oiUSDValue||0)+'M</div><div class="ds">連續'+(c.oiContinuous||0)+'根'+(c.oiContinuous>0?'增倉':c.oiContinuous<0?'減倉':'持平')+'</div></div>'+
 '</div></div>'+
 '<div class="dblock"><div class="dbt">💰 資金費率</div>'+
 '<div class="dgrid">'+
 '<div class="di"><div class="dl">當前費率</div><div class="dv '+(fr>0?'cg':fr<0?'cr':'ca')+'">'+ffr(fr)+'</div><div class="ds">'+(fr>0.005?'多方付費':fr<-0.005?'空方付費':'費率中性')+'</div><div class="bar"><div class="bf" style="width:'+frBW+'%;background:'+(fr>0?'var(--g)':'var(--r)')+'"></div></div></div>'+
-'<div class="di"><div class="dl">7次平均FR</div><div class="dv '+(+c.frAvgPct>=0?'cg':'cr')+'">'+（+c.frAvgPct>=0?'+':'')+c.frAvgPct+'%</div><div class="ds">下次結算 '+c.nextFunding+'<br>'+countdown+'</div></div>'+
-'<div class="di"><div class="dl">期現價差</div><div class="dv '+(+c.basis>=0?'cg':'cr')+'">'+(+c.basis>=0?'+':'')+（+c.basis||0).toFixed(3)+'%</div><div class="ds">'+(+c.basis>0.1?'合約溢價看多':+c.basis<-0.1?'合約折價看空':'期現均衡')+'</div></div>'+
-'<div class="di"><div class="dl">相對BTC</div><div class="dv '+(+c.relBTC>=0?'cg':'cr')+'">'+（+c.relBTC>=0?'+':'')+c.relBTC+'%</div><div class="ds">'+(+c.relBTC>5?'🚀獨立強勢':+c.relBTC>0?'略強於BTC':+c.relBTC<-5?'弱於市場':'跟隨BTC')+'</div></div>'+
+'<div class="di"><div class="dl">7次平均FR</div><div class="dv '+((+c.frAvgPct>=0)?'cg':'cr')+'">'+((+c.frAvgPct>=0)?'+':'')+c.frAvgPct+'%</div><div class="ds">下次結算 '+c.nextFunding+'<br>'+countdown+'</div></div>'+
+'<div class="di"><div class="dl">期現價差</div><div class="dv '+((+c.basis>=0)?'cg':'cr')+'">'+((+c.basis>=0)?'+':'')+((+c.basis||0).toFixed(3))+'%</div><div class="ds">'+((+c.basis>0.1)?'合約溢價看多':(+c.basis<-0.1)?'合約折價看空':'期現均衡')+'</div></div>'+
+'<div class="di"><div class="dl">相對BTC</div><div class="dv '+((+c.relBTC>=0)?'cg':'cr')+'">'+((+c.relBTC>=0)?'+':'')+c.relBTC+'%</div><div class="ds">'+((+c.relBTC>5)?'🚀獨立強勢':(+c.relBTC>0)?'略強於BTC':(+c.relBTC<-5)?'弱於市場':'跟隨BTC')+'</div></div>'+
 '</div></div>'+
 '<div class="dblock"><div class="dbt">🐋 主力動向</div>'+
 '<div class="dgrid">'+
@@ -169,10 +169,10 @@ alertsHtml+
 '</div></div>'+
 '<div class="dblock"><div class="dbt">⚡ 買賣壓力 / CVD</div>'+
 '<div class="dgrid">'+
-'<div class="di"><div class="dl">Taker 買壓</div><div class="dv '+(+c.taker>=52?'cg':+c.taker<=48?'cr':'ca')+'">'+(+c.taker||50)+'%</div><div class="ds">'+（c.takerTrend||'--')+'</div></div>'+
-'<div class="di"><div class="dl">合約CVD</div><div class="dv '+(c.futCVDDir==='買'?'cg':c.futCVDDir==='賣'?'cr':'ca')+'">'+（c.futCVDDir||'--')+'</div><div class="ds">'+（c.cvdText||'--')+'</div></div>'+
-'<div class="di"><div class="dl">現貨CVD</div><div class="dv '+(c.spotCVDDir==='買'?'cg':c.spotCVDDir==='賣'?'cr':'ca')+'">'+（c.spotCVDDir||'--')+'</div><div class="ds">'+(c.spotCVDDir===c.futCVDDir?'合約現貨一致':'⚠️方向不一致')+'</div></div>'+
-'<div class="di"><div class="dl">成交量 RVOL</div><div class="dv '+(+c.rvol>=2?'ca':'')+'">'+（+c.rvol||1).toFixed(1)+'x</div><div class="ds">'+(+c.rvol>=3?'異常放量🔥':+c.rvol>=2?'明顯放量':'正常成交量')+'<br>期現量比 '+（+c.futSpotVolRatio||0).toFixed(1)+'x</div></div>'+
+'<div class="di"><div class="dl">Taker 買壓</div><div class="dv '+((+c.taker>=52)?'cg':(+c.taker<=48)?'cr':'ca')+'">'+(+c.taker||50)+'%</div><div class="ds">'+(c.takerTrend||'--')+'</div></div>'+
+'<div class="di"><div class="dl">合約CVD</div><div class="dv '+(c.futCVDDir==='買'?'cg':c.futCVDDir==='賣'?'cr':'ca')+'">'+(c.futCVDDir||'--')+'</div><div class="ds">'+(c.cvdText||'--')+'</div></div>'+
+'<div class="di"><div class="dl">現貨CVD</div><div class="dv '+(c.spotCVDDir==='買'?'cg':c.spotCVDDir==='賣'?'cr':'ca')+'">'+(c.spotCVDDir||'--')+'</div><div class="ds">'+(c.spotCVDDir===c.futCVDDir?'合約現貨一致':'⚠️方向不一致')+'</div></div>'+
+'<div class="di"><div class="dl">成交量 RVOL</div><div class="dv '+((+c.rvol>=2)?'ca':'')+'">'+((+c.rvol||1).toFixed(1))+'x</div><div class="ds">'+((+c.rvol>=3)?'異常放量🔥':(+c.rvol>=2)?'明顯放量':'正常成交量')+'<br>期現量比 '+((+c.futSpotVolRatio||0).toFixed(1))+'x</div></div>'+
 '</div></div>'+
 '</div></div>';
 }).join('');
@@ -193,7 +193,6 @@ if(curTab==='rvol')return(+c.rvol||1)>=2;
 if(curTab==='expired')return c.signalExpired;
 return true;
 });
-// 排序：最新訊號時間優先
 list.sort((a,b)=>{
 const tA=a.signalTime||'',tB=b.signalTime||'';
 if(tA!==tB)return tB.localeCompare(tA);
