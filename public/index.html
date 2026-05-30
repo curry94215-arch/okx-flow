@@ -80,6 +80,8 @@ body{background:var(--bg0);color:var(--t0);font-family:var(--sans);min-height:10
 <div class="mi"><span class="mil">強烈</span><span class="miv" id="hotcnt">--</span></div>
 <div class="msep"></div>
 <div class="mi"><span class="mil">更新</span><span class="miv" id="lupd">--</span></div>
+<div class="msep"></div>
+<div class="mi"><span class="mil">整體勝率</span><span class="miv" id="gwr">--</span></div>
 </div>
 <div class="wrap">
 <div class="sum" id="sum">
@@ -178,6 +180,9 @@ function renderSum(){
   document.getElementById('avgfr').style.color=avgFR>0?'var(--g)':'var(--r)';
   document.getElementById('hotcnt').textContent=s5+'';
   document.getElementById('lupd').textContent=MKT.updateTime||'--';
+  var gwr=MKT.globalWinRate;
+  document.getElementById('gwr').textContent=gwr!=null?gwr+'%('+(MKT.globalTradeCount||0)+'筆)':'--';
+  document.getElementById('gwr').style.color=gwr>=60?'var(--g)':gwr>=40?'var(--a)':'var(--r)';
   var pct=MKT.totalBatches?Math.round(((MKT.currentBatch||0)+1)/MKT.totalBatches*100):100;
   document.getElementById('batchfill').style.width=Math.min(100,pct)+'%';
 }
@@ -264,8 +269,31 @@ function renderList(coins){
       html+='<div class="di"><div class="dl">Taker買壓買壓</div><div class="dv '+((+c.taker>=52)?'cg':(+c.taker<=48)?'cr':'ca')+'">'+(+c.taker||50)+'%</div><div class="ds">'+(c.takerTrend||'--')+'</div></div>';
       html+='<div class="di"><div class="dl">評分</div><div class="dv" style="color:'+SC(c.score)+'">'+c.score+'</div></div>';
       html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambushScore||0)>=80?'var(--g)':(c.ambushScore||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambushScore||0)+'</div><div class="ds">'+((c.ambushScore||0)>=80?'強力埋伏':(c.ambushScore||0)>=60?'值得觀察':'無信號')+'</div></div>';
+      html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambushScore||0)>=80?'var(--g)':(c.ambushScore||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambushScore||0)+'</div><div class="ds">'+((c.ambushScore||0)>=80?'強力埋伏':(c.ambushScore||0)>=60?'值得觀察':'無信號')+'</div></div>';
       html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambush評分||0)>=80?'var(--g)':(c.ambush評分||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambush評分||0)+'</div><div class="ds">'+((c.ambush評分||0)>=80?'強力埋伏':(c.ambush評分||0)>=60?'值得觀察':'無信號')+'</div></div>';
       html+='</div></div>';
+      // 績效追蹤
+      if((c.perfCount||0)>0||(c.winRate!=null)){
+        html+='<div class="dblock"><div class="dbt">📊 訊號績效追蹤</div>';
+        html+='<div class="dgrid">';
+        html+='<div class="di"><div class="dl">勝率</div><div class="dv '+((c.winRate||0)>=60?'cg':(c.winRate||0)>=40?'ca':'cr')+'">'+(c.winRate!=null?c.winRate+'%':'--')+'</div><div class="ds">共'+(c.perfCount||0)+'筆</div></div>';
+        html+='<div class="di"><div class="dl">平均盈虧</div><div class="dv '+((c.avgPnl||0)>=0?'cg':'cr')+'">'+(c.avgPnl!=null?(c.avgPnl>=0?'+':'')+c.avgPnl+'%':'--')+'</div></div>';
+        html+='</div>';
+        if(c.perfHistory&&c.perfHistory.length>0){
+          html+='<div style="margin-top:6px">';
+          c.perfHistory.slice().reverse().forEach(function(p){
+            var icon=p.result==='tp1'||p.result==='tp2'?'✅':p.result==='sl'?'❌':'⏳';
+            var col=p.result==='tp1'||p.result==='tp2'?'var(--g)':p.result==='sl'?'var(--r)':'var(--t2)';
+            html+='<div style="display:flex;justify-content:space-between;font-size:8px;padding:2px 0;border-bottom:1px solid var(--b0)">';
+            html+='<span>'+icon+' '+p.entryTime+'</span>';
+            html+='<span style="color:'+col+'">'+(p.result==='open'?'持倉中':p.result==='tp1'?'止盈1':p.result==='tp2'?'止盈2':'止損')+'</span>';
+            html+='<span style="color:'+col+'">'+(p.pnl!=null?(p.pnl>=0?'+':'')+p.pnl+'%':'--')+'</span>';
+            html+='</div>';
+          });
+          html+='</div>';
+        }
+        html+='</div>';
+      }
       html+='</div></div>';
     }catch(e){
       html+='<div class="cc"><div class="cb" style="color:var(--t2);font-size:10px">'+(c.sym||'?')+' 錯誤</div></div>';
