@@ -152,7 +152,7 @@ function renderSum(){
   var S=ALL.filter(function(c){return c.score<=42;}).length;
   var s5=ALL.filter(function(c){return c.score>=83;}).length;
   var alerts=ALL.filter(function(c){return c.alerts&&c.alerts.length>0;}).length;
-  var surge=ALL.filter(function(c){return c.is飆漲;}).length;
+  var surge=ALL.filter(function(c){return c.isSurge;}).length;
   var top=ALL[0]||{};
   document.getElementById('sum').innerHTML=
     '<div class="sm g"><div class="sml">做多信號</div><div class="smv cg">'+L+'</div><div class="sms">共'+ALL.length+'</div></div>'+
@@ -213,18 +213,18 @@ function renderList(coins){
       }
       var wlBig=wl>=60&&c.hasLSData;
       var wsBig=wl<=40&&c.hasLSData;
-      html+='<div class="cc '+(c.score>=58?'long':c.score<=42?'short':'')+' '+(c.is強烈?'hot':'')+'">';
+      html+='<div class="cc '+(c.score>=58?'long':c.score<=42?'short':'')+' '+(c.isHot?'hot':'')+'">';
       html+=alertsHtml;
       html+='<div class="cb">';
       html+='<div class="r1"><div class="r1l"><span class="csym">'+c.sym+'</span>';
-      if(c.is強烈)html+='<span class="badge hbadge">HOT</span>';
+      if(c.isHot)html+='<span class="badge hbadge">HOT</span>';
       if(c.isOIBomb)html+='<span class="badge obadge">OI!</span>';
       if(c.frFlip===1)html+='<span class="badge" style="background:var(--g2);color:var(--g);border:1px solid var(--g3)">FR+</span>';
       if(c.frFlip===-1)html+='<span class="badge wsbadge">FR-</span>';
       if((+c.rvol||1)>=2)html+='<span class="badge" style="background:var(--a2);color:var(--a);border:1px solid var(--a3)">Vol'+c.rvol+'x</span>';
       if(wlBig)html+='<span class="badge wlbadge">Whale L'+wl+'%</span>';
       if(wsBig)html+='<span class="badge wsbadge">Whale S'+(100-wl)+'%</span>';
-      if(c.is飆漲)html+='<span class="badge" style="background:var(--a2);color:var(--a);border:1px solid var(--a3)">+'+chg.toFixed(0)+'%</span>';
+      if(c.isSurge)html+='<span class="badge" style="background:var(--a2);color:var(--a);border:1px solid var(--a3)">+'+chg.toFixed(0)+'%</span>';
       html+='</div>';
       html+='<div class="pr"><div class="price">'+fp(c.price)+'</div>';
       html+='<div class="pchg '+(chg>=0?'cg':'cr')+'">'+fc(chg)+'</div>';
@@ -251,7 +251,7 @@ function renderList(coins){
       html+='<div class="di"><div class="dl">1H 變化</div><div class="dv '+(oi1h>=0?'cg':'cr')+'">'+(oi1h>=0?'+':'')+oi1h.toFixed(2)+'%</div><div class="ds">'+(c.oiTrend||'--')+'</div></div>';
       html+='<div class="di"><div class="dl">24H 變化</div><div class="dv '+(oi24h>=0?'cg':'cr')+'">'+(oi24h>=0?'+':'')+oi24h.toFixed(2)+'%</div><div class="ds">'+(c.oiStrength||'--')+'</div></div>';
       html+='<div class="di"><div class="dl">OI 名目價值</div><div class="dv">$'+(+c.oiUSDValue||0)+'M</div></div>';
-      html+='<div class="di"><div class="dl">連續根數</div><div class="dv '+(c.oi連續根數>0?'cg':c.oi連續根數<0?'cr':'ca')+'">'+(c.oi連續根數||0)+'</div></div>';
+      html+='<div class="di"><div class="dl">連續根數</div><div class="dv '+(c.oiContinuous>0?'cg':c.oiContinuous<0?'cr':'ca')+'">'+(c.oiContinuous||0)+'</div></div>';
       html+='</div></div>';
       html+='<div class="dblock"><div class="dbt">💰 資金費率</div><div class="dgrid">';
       html+='<div class="di"><div class="dl">當前費率</div><div class="dv '+(fr>0?'cg':fr<0?'cr':'ca')+'">'+ffr(fr)+'</div><div class="ds">'+(fr>0.005?'多方付費':fr<-0.005?'做空s pay':'Neutral')+'</div><div class="bar"><div class="bf" style="width:'+frBW+'%;background:'+(fr>0?'var(--g)':'var(--r)')+'"></div></div></div>';
@@ -270,7 +270,7 @@ function renderList(coins){
       html+='<div class="di"><div class="dl">評分</div><div class="dv" style="color:'+SC(c.score)+'">'+c.score+'</div></div>';
       html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambushScore||0)>=80?'var(--g)':(c.ambushScore||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambushScore||0)+'</div><div class="ds">'+((c.ambushScore||0)>=80?'強力埋伏':(c.ambushScore||0)>=60?'值得觀察':'無信號')+'</div></div>';
       html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambushScore||0)>=80?'var(--g)':(c.ambushScore||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambushScore||0)+'</div><div class="ds">'+((c.ambushScore||0)>=80?'強力埋伏':(c.ambushScore||0)>=60?'值得觀察':'無信號')+'</div></div>';
-      html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambush評分||0)>=80?'var(--g)':(c.ambush評分||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambush評分||0)+'</div><div class="ds">'+((c.ambush評分||0)>=80?'強力埋伏':(c.ambush評分||0)>=60?'值得觀察':'無信號')+'</div></div>';
+      html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambushScore||0)>=80?'var(--g)':(c.ambushScore||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambushScore||0)+'</div><div class="ds">'+((c.ambushScore||0)>=80?'強力埋伏':(c.ambushScore||0)>=60?'值得觀察':'無信號')+'</div></div>';
       html+='</div></div>';
       // 績效追蹤
       if((c.perfCount||0)>0||(c.winRate!=null)){
@@ -320,8 +320,8 @@ function apply(){
     if(curTab==='short')return c.score<=42;
     if(curTab==='alert')return c.alerts&&c.alerts.length>0;
     if(curTab==='oia')return c.isOIBomb;
-    if(curTab==='ambush')return(c.ambush評分||0)>=60;
-    if(curTab==='surge')return c.is飆漲;
+    if(curTab==='ambush')return(c.ambushScore||0)>=60;
+    if(curTab==='surge')return c.isSurge;
     if(curTab==='frflip')return c.frFlip!==0;
     if(curTab==='rvol')return(+c.rvol||1)>=2;
     if(curTab==='wlong')return(+c.whaleLong||50)>=60&&c.hasLSData;
@@ -332,10 +332,10 @@ function apply(){
   else if(curTab==='recent')list.sort(function(a,b){return(b.signalTime||'').localeCompare(a.signalTime||'');});
   else if(curTab==='wlong')list.sort(function(a,b){return(+b.whaleLong||50)-(+a.whaleLong||50);});
   else if(curTab==='wshort')list.sort(function(a,b){return(+a.whaleLong||50)-(+b.whaleLong||50);});
-  else if(curTab==='ambush')list.sort(function(a,b){return(b.ambush評分||0)-(a.ambush評分||0);});
+  else if(curTab==='ambush')list.sort(function(a,b){return(b.ambushScore||0)-(a.ambushScore||0);});
   else list.sort(function(a,b){
-    var aP=(a.isOIBomb&&a.is飆漲)?3:(a.isOIBomb||a.is飆漲)?2:a.score>=83?1:0;
-    var bP=(b.isOIBomb&&b.is飆漲)?3:(b.isOIBomb||b.is飆漲)?2:b.score>=83?1:0;
+    var aP=(a.isOIBomb&&a.isSurge)?3:(a.isOIBomb||a.isSurge)?2:a.score>=83?1:0;
+    var bP=(b.isOIBomb&&b.isSurge)?3:(b.isOIBomb||b.isSurge)?2:b.score>=83?1:0;
     if(aP!==bP)return bP-aP;
     return b.score-a.score;
   });
