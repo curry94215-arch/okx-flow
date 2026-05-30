@@ -186,7 +186,7 @@ function renderSum(){
   document.getElementById('fg').style.color=fg>70?'var(--r)':fg<30?'var(--g)':'var(--a)';
   document.getElementById('btcchg').textContent=(MKT.btcChg>=0?'+':'')+MKT.btcChg+'%';
   document.getElementById('btcchg').style.color=MKT.btcChg>=0?'var(--g)':'var(--r)';
-  document.getElementById('btcd').textContent=(MKT.btcDominance||'--')+'%';
+  document.getElementById('btcd').textContent=(MKT.btcDominance||'--')+(MKT.btcDominance?'%':'');
   document.getElementById('btcd').style.color=(MKT.btcDominance||0)>55?'var(--r)':'var(--g)';
   const mls=MKT.marketLongRatio||50;
   document.getElementById('mktls').textContent='多'+mls+'% 空'+(100-mls)+'%';
@@ -431,10 +431,13 @@ async function load(manual=false){
     const j=await r.json();
     if(!j.ok||!j.data?.length)throw new Error(j.msg||j.error||'no data');
     ALL=j.data;MKT=j.market||{};
-    try{renderSum();}catch(e){console.error('renderSum error:',e);}
-    try{apply();}catch(e){console.error('apply error:',e);}
     pill.className='lpill plive';
     pill.innerHTML='<span class="ldot"></span>LIVE·'+ALL.length;
+    try{renderSum();}catch(e){console.error('renderSum:',e.message);}
+    try{apply();}catch(e){
+      console.error('apply:',e.message);
+      document.getElementById('list').innerHTML='<div style="text-align:center;padding:30px;color:var(--r);font-size:10px">Error: '+e.message+'</div>';
+    }
     clearTimeout(autoT);autoT=setTimeout(()=>load(),30000);
   }catch(e){
     pill.className='lpill perr';pill.innerHTML='<span>⚠</span> Error';
