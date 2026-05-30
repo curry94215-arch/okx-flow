@@ -99,6 +99,7 @@ body{background:var(--bg0);color:var(--t0);font-family:var(--sans);min-height:10
 <button class="tab" onclick="setTab('wshort',this)">&#x1F43B; Whale 做空</button>
 <button class="tab" onclick="setTab('alert',this)">⚠️警報</button>
 <button class="tab" onclick="setTab('oia',this)">OI異常</button>
+<button class="tab" onclick="setTab('ambush',this)">🎯埋伏雷達</button>
 <button class="tab" onclick="setTab('surge',this)">&#x1F4C8; 飆漲</button>
 <button class="tab" onclick="setTab('frflip',this)">FR翻轉</button>
 <button class="tab" onclick="setTab('rvol',this)">放量</button>
@@ -262,6 +263,7 @@ function renderList(coins){
       html+='<div class="di"><div class="dl">成交量RVOL</div><div class="dv '+((+c.rvol>=2)?'ca':'')+'">'+((+c.rvol||1).toFixed(1))+'x</div><div class="ds">'+((+c.rvol>=3)?'異常放量🔥':( +c.rvol>=2)?'明顯放量':'正常')+'</div></div>';
       html+='<div class="di"><div class="dl">Taker買壓</div><div class="dv '+((+c.taker>=52)?'cg':(+c.taker<=48)?'cr':'ca')+'">'+(+c.taker||50)+'%</div><div class="ds">'+(c.takerTrend||'--')+'</div></div>';
       html+='<div class="di"><div class="dl">評分</div><div class="dv" style="color:'+SC(c.score)+'">'+c.score+'</div></div>';
+      html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambushScore||0)>=80?'var(--g)':(c.ambushScore||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambushScore||0)+'</div><div class="ds">'+((c.ambushScore||0)>=80?'強力埋伏':(c.ambushScore||0)>=60?'值得觀察':'無信號')+'</div></div>';
       html+='</div></div>';
       html+='</div></div>';
     }catch(e){
@@ -289,6 +291,7 @@ function apply(){
     if(curTab==='short')return c.score<=42;
     if(curTab==='alert')return c.alerts&&c.alerts.length>0;
     if(curTab==='oia')return c.isOIBomb;
+    if(curTab==='ambush')return(c.ambushScore||0)>=60;
     if(curTab==='surge')return c.is飆漲;
     if(curTab==='frflip')return c.frFlip!==0;
     if(curTab==='rvol')return(+c.rvol||1)>=2;
@@ -300,6 +303,7 @@ function apply(){
   else if(curTab==='recent')list.sort(function(a,b){return(b.signalTime||'').localeCompare(a.signalTime||'');});
   else if(curTab==='wlong')list.sort(function(a,b){return(+b.whaleLong||50)-(+a.whaleLong||50);});
   else if(curTab==='wshort')list.sort(function(a,b){return(+a.whaleLong||50)-(+b.whaleLong||50);});
+  else if(curTab==='ambush')list.sort(function(a,b){return(b.ambushScore||0)-(a.ambushScore||0);});
   else list.sort(function(a,b){
     var aP=(a.isOIBomb&&a.is飆漲)?3:(a.isOIBomb||a.is飆漲)?2:a.score>=83?1:0;
     var bP=(b.isOIBomb&&b.is飆漲)?3:(b.isOIBomb||b.is飆漲)?2:b.score>=83?1:0;
@@ -317,7 +321,7 @@ async function load(manual){
   pill.className='lpill pload';
   pill.innerHTML='<span class="ldot"></span>連接中';
   try{
-    var r=await fetch(API,{signal:AbortSignal.timeout(30000)});
+    var r=await fetch(API,{signal:AbortSignal.timeout(55000)});
     if(!r.ok)throw new ⚠ 失敗('HTTP '+r.status);
     var j=await r.json();
     if(!j.ok)throw new ⚠ 失敗(j.錯誤||'API錯誤');
