@@ -254,16 +254,17 @@ function renderList(coins){
       html+='<div class="di"><div class="dl">相對BTC</div><div class="dv '+(+c.relBTC>=0?'cg':'cr')+'">'+(+c.relBTC>=0?'+':'')+(+c.relBTC||0)+'%</div><div class="ds">'+(+c.relBTC>5?'🚀獨立強勢':+c.relBTC>0?'略強於BTC':'弱於市場')+'</div></div>';
       html+='<div class="di"><div class="dl">FR翻轉</div><div class="dv '+(c.frFlip===1?'cg':c.frFlip===-1?'cr':'ca')+'">'+(c.frFlip===1?'正轉↑':c.frFlip===-1?'負轉↓':'無')+'</div></div>';
       html+='</div></div>';
-      html+='<div class="dblock"><div class="dbt">🐋 主力動向 '+(c.hasLSData?'(OKX+Bybit聚合)':'(市場均值)')+'</div><div class="dgrid">';
+      html+='<div class="dblock"><div class="dbt">🐋 主力動向 '+(c.hasLSData?'(OKX聚合)':'(市場均值)')+'</div><div class="dgrid">';
       html+='<div class="di"><div class="dl">大戶多頭</div><div class="dv '+(wl>52?'cg':wl<48?'cr':'ca')+'">'+wl+'%</div><div class="ds">做空 '+(100-wl)+'%</div><div class="ratbar"><div class="rbl" style="width:'+wl+'%"></div><div class="rbs" style="width:'+(100-wl)+'%"></div></div></div>';
       html+='<div class="di"><div class="dl">散戶多頭</div><div class="dv '+(rl<48?'cg':rl>52?'cr':'ca')+'">'+rl+'%</div><div class="ds">'+(rl<35?'散戶偏空(反向做多)':rl>65?'散戶追多謹慎':'散戶均衡')+'</div></div>';
       html+='</div></div>';
       html+='<div class="dblock"><div class="dbt">放量 / CVD</div><div class="dgrid">';
-      html+='<div class="di"><div class="dl">合約CVD</div><div class="dv '+(c.futCVDDir==='Buy'?'cg':c.futCVDDir==='Sell'?'cr':'ca')+'">'+(c.futCVDDir||'--')+'</div><div class="ds">'+(c.cvdText||'--')+'</div></div>';
-      html+='<div class="di"><div class="dl">成交量RVOL</div><div class="dv '+((+c.rvol>=2)?'ca':'')+'">'+((+c.rvol||1).toFixed(1))+'x</div><div class="ds">'+((+c.rvol>=3)?'異常放量🔥':( +c.rvol>=2)?'明顯放量':'正常')+'</div></div>';
-      html+='<div class="di"><div class="dl">Taker買壓</div><div class="dv '+((+c.taker>=52)?'cg':(+c.taker<=48)?'cr':'ca')+'">'+(+c.taker||50)+'%</div><div class="ds">'+(c.takerTrend||'--')+'</div></div>';
+      html+='<div class="di"><div class="dl">合約CVD</div><div class="dv '+(c.futCVDDir==='買'?'cg':c.futCVDDir==='賣'?'cr':'ca')+'">'+(c.futCVDDir||'--')+'</div><div class="ds">'+(c.cvdText||'--')+'</div></div>';
+      html+='<div class="di"><div class="dl">成交量RVOL成交量</div><div class="dv '+((+c.rvol>=2)?'ca':'')+'">'+((+c.rvol||1).toFixed(1))+'x</div><div class="ds">'+((+c.rvol>=3)?'異常放量🔥':( +c.rvol>=2)?'明顯放量':'正常')+'</div></div>';
+      html+='<div class="di"><div class="dl">Taker買壓買壓</div><div class="dv '+((+c.taker>=52)?'cg':(+c.taker<=48)?'cr':'ca')+'">'+(+c.taker||50)+'%</div><div class="ds">'+(c.takerTrend||'--')+'</div></div>';
       html+='<div class="di"><div class="dl">評分</div><div class="dv" style="color:'+SC(c.score)+'">'+c.score+'</div></div>';
       html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambushScore||0)>=80?'var(--g)':(c.ambushScore||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambushScore||0)+'</div><div class="ds">'+((c.ambushScore||0)>=80?'強力埋伏':(c.ambushScore||0)>=60?'值得觀察':'無信號')+'</div></div>';
+      html+='<div class="di"><div class="dl">🎯埋伏分</div><div class="dv" style="color:'+((c.ambush評分||0)>=80?'var(--g)':(c.ambush評分||0)>=60?'var(--a)':'var(--t2)')+'">'+(c.ambush評分||0)+'</div><div class="ds">'+((c.ambush評分||0)>=80?'強力埋伏':(c.ambush評分||0)>=60?'值得觀察':'無信號')+'</div></div>';
       html+='</div></div>';
       html+='</div></div>';
     }catch(e){
@@ -291,7 +292,7 @@ function apply(){
     if(curTab==='short')return c.score<=42;
     if(curTab==='alert')return c.alerts&&c.alerts.length>0;
     if(curTab==='oia')return c.isOIBomb;
-    if(curTab==='ambush')return(c.ambushScore||0)>=60;
+    if(curTab==='ambush')return(c.ambush評分||0)>=60;
     if(curTab==='surge')return c.is飆漲;
     if(curTab==='frflip')return c.frFlip!==0;
     if(curTab==='rvol')return(+c.rvol||1)>=2;
@@ -303,7 +304,7 @@ function apply(){
   else if(curTab==='recent')list.sort(function(a,b){return(b.signalTime||'').localeCompare(a.signalTime||'');});
   else if(curTab==='wlong')list.sort(function(a,b){return(+b.whaleLong||50)-(+a.whaleLong||50);});
   else if(curTab==='wshort')list.sort(function(a,b){return(+a.whaleLong||50)-(+b.whaleLong||50);});
-  else if(curTab==='ambush')list.sort(function(a,b){return(b.ambushScore||0)-(a.ambushScore||0);});
+  else if(curTab==='ambush')list.sort(function(a,b){return(b.ambush評分||0)-(a.ambush評分||0);});
   else list.sort(function(a,b){
     var aP=(a.isOIBomb&&a.is飆漲)?3:(a.isOIBomb||a.is飆漲)?2:a.score>=83?1:0;
     var bP=(b.isOIBomb&&b.is飆漲)?3:(b.isOIBomb||b.is飆漲)?2:b.score>=83?1:0;
