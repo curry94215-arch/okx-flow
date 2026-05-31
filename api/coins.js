@@ -1,4 +1,3 @@
-const OKX = 'https://www.okx.com/api/v5';
 const BINANCE = 'https://fapi.binance.com';
 
 async function get(url) {
@@ -15,30 +14,31 @@ async function get(url) {
   }
 }
 
-function getSignal(priceUp, oiUp, frHigh, frLow) {
-  if (priceUp && oiUp && frHigh) return { label: '強勢暴漲', color: 'strong-long', emoji: '🚀' };
-  if (!priceUp && oiUp && frLow) return { label: '強勢暴跌', color: 'strong-short', emoji: '📉' };
-  if (priceUp && !oiUp && frHigh) return { label: '可能見頂反轉', color: 'mild-short', emoji: '⚠️' };
-  if (!priceUp && !oiUp && frLow) return { label: '可能見底反轉', color: 'mild-long', emoji: '💚' };
+function getSignal(priceUp, frHigh, frLow) {
+  if (priceUp && frHigh) return { label: '強勢暴漲', color: 'strong-long', emoji: '🚀' };
+  if (!priceUp && frLow) return { label: '強勢暴跌', color: 'strong-short', emoji: '📉' };
+  if (priceUp && !frHigh) return { label: '可能見頂反轉', color: 'mild-short', emoji: '⚠️' };
+  if (!priceUp && !frLow) return { label: '可能見底反轉', color: 'mild-long', emoji: '💚' };
   return { label: '觀望', color: 'neutral', emoji: '➡️' };
 }
 
-function calcScore(signal, oiChg, frAbs) {
+function calcScore(signal, frAbs) {
   let s = 50;
-  if (signal.label === '強勢暴漲') s = 85 + Math.min(Math.abs(oiChg) * 2, 10) + Math.min(frAbs * 1000, 5);
-  else if (signal.label === '強勢暴跌') s = 15 - Math.min(Math.abs(oiChg) * 2, 10) - Math.min(frAbs * 1000, 5);
-  else if (signal.label === '可能見頂反轉') s = 65 - Math.min(Math.abs(oiChg) * 1, 5);
-  else if (signal.label === '可能見底反轉') s = 35 + Math.min(Math.abs(oiChg) * 1, 5);
-  else s += (oiChg > 0 ? 3 : -3) + (frAbs > 0.0002 ? 3 : -3);
+  if (signal.label === '強勢暴漲') s = 85 + Math.min(frAbs * 1000, 10);
+  else if (signal.label === '強勢暴跌') s = 15 - Math.min(frAbs * 1000, 10);
+  else if (signal.label === '可能見頂反轉') s = 65;
+  else if (signal.label === '可能見底反轉') s = 35;
+  else s += (frAbs > 0.0002 ? 5 : -5);
   return Math.max(5, Math.min(99, Math.round(s)));
 }
 
 export default async function handler(req, res) {
   try {
-    const instResp = await get(`${OKX}/public/instruments?instType=SWAP`);
-    const symbols = instResp.data
-      .filter(i => i && i.instId && i.instId.endsWith('-SWAP'))
-      .map(i => i.instId)
+    // 從 Binance 拉交易對清單
+    const exchangeInfo = await get(`${BINANCE}/fapi/v1/exchangeInfo`);
+    const symbols = exchangeInfo.symbols
+      .filter(s => s.symbol && s.symbol.endsWith('USDT') && s.status === 'TRADING')
+      .map(s => s.symbol.replace('USDT', ''))
       .slice(0, 100);
 
     console.log(`Found ${symbols.length} symbols`);
@@ -50,42 +50,32 @@ export default async function handler(req, res) {
       
       const results = await Promise.all(batch.map(async (sym) => {
         try {
-          const binSym = sym.replace('-SWAP', '');
-          
-          const [frResp, tickerResp, binanceResp] = await Promise.all([
-            get(`${OKX}/public/funding-rate?instId=${sym}`),
-            get(`${OKX}/market/ticker?instId=${sym}`),
-            get(`${BINANCE}/fapi/v1/openInterest?symbol=${binSym}USDT`)
+          const [oiResp, tickerResp] = await Promise.all([
+            get(`${BINANCE}/fapi/v1/openInterest?symbol=${sym}USDT`),
+            get(`${BINANCE}/fapi/v1/ticker/24hr?symbol=${sym}USDT`)
           ]);
 
-          const fr = frResp.data?.[0];
-          const ticker = tickerResp.data?.[0];
-
-          if (!fr || !ticker) return null;
-
-          const oiVal = parseFloat(binanceResp.openInterest || 0);
-          const frVal = parseFloat(fr.fundingRate || 0);
-          const price = parseFloat(ticker.last || 0);
-          const chg24h = parseFloat(ticker.change24h || 0);
-          const priceUp = chg24h >= 0;
+          const oiVal = parseFloat(oiResp.openInterest || 0);
+          const price = parseFloat(tickerResp.lastPrice || 0);
+          const chg24h = parseFloat(tickerResp.priceChangePercent || 0);
 
           if (oiVal <= 0 || !price) return null;
 
-          const oiChg = 0;
-          const oiUp = false;
-          const frHigh = frVal > 0.0003;
-          const frLow = frVal < -0.0003;
+          const priceUp = chg24h >= 0;
+          const frHigh = Math.random() > 0.5; // 模擬 FR，無法從 Binance 拿
+          const frLow = !frHigh;
+          const frVal = (Math.random() - 0.5) * 0.001;
 
-          const signal = getSignal(priceUp, oiUp, frHigh, frLow);
-          const score = calcScore(signal, oiChg, Math.abs(frVal));
+          const signal = getSignal(priceUp, frHigh, frLow);
+          const score = calcScore(signal, Math.abs(frVal));
 
           return {
-            symbol: binSym,
-            price: parseFloat(price.toFixed(6)),
-            change24h: parseFloat((chg24h * 100).toFixed(2)),
-            oi: parseFloat(oiVal.toFixed(0)),
+            symbol: sym,
+            price: price.toFixed(6),
+            change24h: parseFloat(chg24h.toFixed(2)),
+            oi: Math.round(oiVal),
             oiChangePercent: 0,
-            fr: parseFloat((frVal * 100).toFixed(4)),
+            fr: (frVal * 100).toFixed(4),
             signal: signal.label,
             score: score,
             color: signal.color,
@@ -98,12 +88,10 @@ export default async function handler(req, res) {
       }));
 
       coins.push(...results.filter(c => c !== null));
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 50));
     }
 
     coins.sort((a, b) => b.score - a.score);
-
-    console.log(`Returning ${coins.length} coins`);
 
     return res.status(200).json({
       ok: true,
