@@ -116,3 +116,6 @@ export default async function handler(req, res) {
     });
   }
 }
+git add api/coins.js
+git commit -m "🚀 Fix: OI 顯示問題"
+git push origin main
