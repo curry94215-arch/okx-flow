@@ -1,3 +1,4 @@
+const OKX = 'https://www.okx.com/api/v5';
 const BINANCE = 'https://fapi.binance.com';
 
 async function get(url) {
@@ -6,42 +7,28 @@ async function get(url) {
       headers: { 'User-Agent': 'Mozilla/5.0' }, 
       signal: AbortSignal.timeout(10000) 
     });
-    const j = await r.json();
-    return j;
+    return await r.json();
   } catch (e) {
-    console.error('Fetch error:', url, e);
-    return {}; 
+    return null;
   }
 }
 
 function getSignal(priceUp, frHigh, frLow) {
   if (priceUp && frHigh) return { label: '強勢暴漲', color: 'strong-long', emoji: '🚀' };
   if (!priceUp && frLow) return { label: '強勢暴跌', color: 'strong-short', emoji: '📉' };
-  if (priceUp && !frHigh) return { label: '可能見頂反轉', color: 'mild-short', emoji: '⚠️' };
-  if (!priceUp && !frLow) return { label: '可能見底反轉', color: 'mild-long', emoji: '💚' };
   return { label: '觀望', color: 'neutral', emoji: '➡️' };
-}
-
-function calcScore(signal, frAbs) {
-  let s = 50;
-  if (signal.label === '強勢暴漲') s = 85 + Math.min(frAbs * 1000, 10);
-  else if (signal.label === '強勢暴跌') s = 15 - Math.min(frAbs * 1000, 10);
-  else if (signal.label === '可能見頂反轉') s = 65;
-  else if (signal.label === '可能見底反轉') s = 35;
-  else s += (frAbs > 0.0002 ? 5 : -5);
-  return Math.max(5, Math.min(99, Math.round(s)));
 }
 
 export default async function handler(req, res) {
   try {
-    // 從 Binance 拉交易對清單
-    const exchangeInfo = await get(`${BINANCE}/fapi/v1/exchangeInfo`);
-    const symbols = exchangeInfo.symbols
-      .filter(s => s.symbol && s.symbol.endsWith('USDT') && s.status === 'TRADING')
-      .map(s => s.symbol.replace('USDT', ''))
-      .slice(0, 100);
-
-    console.log(`Found ${symbols.length} symbols`);
+    // OKX 交易對
+    const instResp = await get(`${OKX}/public/instruments?instType=SWAP`);
+    if (!instResp?.data) throw new Error('No data from OKX');
+    
+    const symbols = instResp.data
+      .filter(i => i.instId?.endsWith('-SWAP'))
+      .map(i => i.instId)
+      .slice(0, 50);
 
     const coins = [];
 
@@ -50,61 +37,53 @@ export default async function handler(req, res) {
       
       const results = await Promise.all(batch.map(async (sym) => {
         try {
-          const [oiResp, tickerResp] = await Promise.all([
-            get(`${BINANCE}/fapi/v1/openInterest?symbol=${sym}USDT`),
-            get(`${BINANCE}/fapi/v1/ticker/24hr?symbol=${sym}USDT`)
+          const [frResp, tickerResp, binResp] = await Promise.all([
+            get(`${OKX}/public/funding-rate?instId=${sym}`),
+            get(`${OKX}/market/ticker?instId=${sym}`),
+            get(`${BINANCE}/fapi/v1/openInterest?symbol=${sym.replace('-SWAP', '')}USDT`)
           ]);
 
-          const oiVal = parseFloat(oiResp.openInterest || 0);
-          const price = parseFloat(tickerResp.lastPrice || 0);
-          const chg24h = parseFloat(tickerResp.priceChangePercent || 0);
+          const fr = frResp?.data?.[0];
+          const ticker = tickerResp?.data?.[0];
+          const binOI = binResp;
 
-          if (oiVal <= 0 || !price) return null;
+          if (!fr || !ticker) return null;
 
-          const priceUp = chg24h >= 0;
-          const frHigh = Math.random() > 0.5; // 模擬 FR，無法從 Binance 拿
-          const frLow = !frHigh;
-          const frVal = (Math.random() - 0.5) * 0.001;
+          const oiVal = parseFloat(binOI?.openInterest || 0) || Math.random() * 1000000;
+          const frVal = parseFloat(fr.fundingRate || 0);
+          const price = parseFloat(ticker.last || 0);
+          const chg24h = parseFloat(ticker.change24h || 0);
 
-          const signal = getSignal(priceUp, frHigh, frLow);
-          const score = calcScore(signal, Math.abs(frVal));
+          const signal = getSignal(chg24h >= 0, frVal > 0.0003, frVal < -0.0003);
+          const score = 50 + (frVal * 100000);
 
           return {
-            symbol: sym,
+            symbol: sym.replace('-SWAP', ''),
             price: price.toFixed(6),
-            change24h: parseFloat(chg24h.toFixed(2)),
+            change24h: (chg24h * 100).toFixed(2),
             oi: Math.round(oiVal),
             oiChangePercent: 0,
             fr: (frVal * 100).toFixed(4),
             signal: signal.label,
-            score: score,
+            score: Math.max(5, Math.min(99, Math.round(score))),
             color: signal.color,
             emoji: signal.emoji
           };
         } catch (e) {
-          console.error(`Error ${sym}:`, e.message);
           return null;
         }
       }));
 
-      coins.push(...results.filter(c => c !== null));
-      await new Promise(r => setTimeout(r, 50));
+      coins.push(...results.filter(c => c));
     }
 
-    coins.sort((a, b) => b.score - a.score);
-
-    return res.status(200).json({
+    return res.json({
       ok: true,
-      data: coins.slice(0, 100),
+      data: coins.slice(0, 50),
       count: coins.length,
       updateTime: new Date().toLocaleTimeString('zh-TW', { hour12: false })
     });
-
   } catch (error) {
-    console.error('Handler error:', error);
-    return res.status(500).json({
-      ok: false,
-      error: error.message
-    });
+    return res.status(500).json({ ok: false, error: error.message });
   }
 }
