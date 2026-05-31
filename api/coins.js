@@ -38,7 +38,6 @@ function calcScore(signal, oiChg, frAbs) {
 
 export default async function handler(req, res) {
   try {
-    // 1. 獲取所有 OKX SWAP 交易對
     const instResp = await get(`${OKX}/public/instruments?instType=SWAP`);
     const symbols = instResp.data
       .filter(i => i && i.instId && i.instId.endsWith('-SWAP'))
@@ -49,7 +48,6 @@ export default async function handler(req, res) {
 
     const coins = [];
 
-    // 2. 批量拉三個交易所的數據
     for (let i = 0; i < symbols.length; i += 10) {
       const batch = symbols.slice(i, i + 10);
       
@@ -57,7 +55,6 @@ export default async function handler(req, res) {
         try {
           const binSym = sym.replace('-SWAP', '');
           
-          // 並行請求三個交易所
           const [frResp, tickerResp, bybitResp, binanceResp] = await Promise.all([
             get(`${OKX}/public/funding-rate?instId=${sym}`),
             get(`${OKX}/market/ticker?instId=${sym}`),
@@ -72,8 +69,8 @@ export default async function handler(req, res) {
 
           if (!fr || !ticker) return null;
 
-          // 優先用 Bybit OI，否則用 Binance OI
           const oiVal = parseFloat(bybitOI?.openInterest || binanceOI?.openInterest || 0);
+          const oiChgFromAPI = parseFloat(bybitOI?.oiChange || binanceOI?.oiChange || 0);
 
           const frVal = parseFloat(fr.fundingRate || 0);
           const price = parseFloat(ticker.last || 0);
@@ -82,20 +79,19 @@ export default async function handler(req, res) {
 
           if (oiVal <= 0 || !price) return null;
 
-          const oiChg = Math.random() * 2 - 1;
-          const oiUp = oiChg > 0;
+          const oiUp = oiChgFromAPI > 0;
           const frHigh = frVal > 0.0003;
           const frLow = frVal < -0.0003;
 
           const signal = getSignal(priceUp, oiUp, frHigh, frLow);
-          const score = calcScore(signal, oiChg, Math.abs(frVal));
+          const score = calcScore(signal, oiChgFromAPI, Math.abs(frVal));
 
           return {
             symbol: binSym,
             price: parseFloat(price.toFixed(6)),
             change24h: parseFloat((chg24h * 100).toFixed(2)),
             oi: parseFloat(oiVal.toFixed(0)),
-            oiChangePercent: 0,
+            oiChangePercent: parseFloat(oiChgFromAPI.toFixed(2)),
             fr: parseFloat((frVal * 100).toFixed(4)),
             signal: signal.label,
             score: score,
