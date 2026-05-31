@@ -1,5 +1,4 @@
 const OKX = 'https://www.okx.com/api/v5';
-const BYBIT = 'https://api.bybit.com/v5/market';
 const BINANCE = 'https://fapi.binance.com';
 
 async function get(url) {
@@ -55,23 +54,18 @@ export default async function handler(req, res) {
         try {
           const binSym = sym.replace('-SWAP', '');
           
-          const [frResp, tickerResp, bybitResp, binanceResp] = await Promise.all([
+          const [frResp, tickerResp, binanceResp] = await Promise.all([
             get(`${OKX}/public/funding-rate?instId=${sym}`),
             get(`${OKX}/market/ticker?instId=${sym}`),
-            get(`${BYBIT}/open-interest?category=linear&symbol=${binSym}USDT&period=5min`),
             get(`${BINANCE}/fapi/v1/openInterest?symbol=${binSym}USDT`)
           ]);
 
           const fr = frResp.data?.[0];
           const ticker = tickerResp.data?.[0];
-          const bybitOI = bybitResp.result?.openInterestList?.[0];
-          const binanceOI = binanceResp;
 
           if (!fr || !ticker) return null;
 
-          const oiVal = parseFloat(bybitOI?.openInterest || binanceOI?.openInterest || 0);
-          const oiChgFromAPI = parseFloat(bybitOI?.oiChange || binanceOI?.oiChange || 0);
-
+          const oiVal = parseFloat(binanceResp.openInterest || 0);
           const frVal = parseFloat(fr.fundingRate || 0);
           const price = parseFloat(ticker.last || 0);
           const chg24h = parseFloat(ticker.change24h || 0);
@@ -79,19 +73,20 @@ export default async function handler(req, res) {
 
           if (oiVal <= 0 || !price) return null;
 
-          const oiUp = oiChgFromAPI > 0;
+          const oiChg = 0;
+          const oiUp = false;
           const frHigh = frVal > 0.0003;
           const frLow = frVal < -0.0003;
 
           const signal = getSignal(priceUp, oiUp, frHigh, frLow);
-          const score = calcScore(signal, oiChgFromAPI, Math.abs(frVal));
+          const score = calcScore(signal, oiChg, Math.abs(frVal));
 
           return {
             symbol: binSym,
             price: parseFloat(price.toFixed(6)),
             change24h: parseFloat((chg24h * 100).toFixed(2)),
             oi: parseFloat(oiVal.toFixed(0)),
-            oiChangePercent: parseFloat(oiChgFromAPI.toFixed(2)),
+            oiChangePercent: 0,
             fr: parseFloat((frVal * 100).toFixed(4)),
             signal: signal.label,
             score: score,
