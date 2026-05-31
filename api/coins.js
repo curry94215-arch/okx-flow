@@ -15,7 +15,6 @@ async function get(url) {
   }
 }
 
-// 信號判斷
 function getSignal(priceUp, oiUp, frHigh, frLow) {
   if (priceUp && oiUp && frHigh) return { label: '強勢暴漲', color: 'strong-long', emoji: '🚀' };
   if (!priceUp && oiUp && frLow) return { label: '強勢暴跌', color: 'strong-short', emoji: '📉' };
@@ -24,7 +23,6 @@ function getSignal(priceUp, oiUp, frHigh, frLow) {
   return { label: '觀望', color: 'neutral', emoji: '➡️' };
 }
 
-// 評分
 function calcScore(signal, oiChg, frAbs) {
   let s = 50;
   if (signal.label === '強勢暴漲') s = 85 + Math.min(Math.abs(oiChg) * 2, 10) + Math.min(frAbs * 1000, 5);
